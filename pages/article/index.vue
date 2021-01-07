@@ -3,20 +3,14 @@
 
     <div class="banner">
       <div class="container">
-
         <h1>{{ article.title }}</h1>
-
         <article-meta :article="article" />
-
       </div>
     </div>
-
     <div class="container page">
-
       <div class="row article-content">
         <div class="col-md-12" v-html="article.body"></div>
       </div>
-
       <hr />
 
       <div class="article-actions">
