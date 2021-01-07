@@ -86,11 +86,10 @@ export default {
 
         // 为了防止刷新页面数据丢失，我们需要把数据持久化
         Cookie.set('user', data.user)
-
+  
         // 跳转到首页
         this.$router.push('/')
       } catch (err) {
-        // console.log('请求失败', err)
         this.errors = err.response.data.errors
       }
     }
