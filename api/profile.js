@@ -24,7 +24,7 @@ export const unFollow = username => {
   })
 }
 
-export const getArticles = (params) => {
+export const getArticles = params => {
   return request({
     method: 'GET',
     url: '/api/articles',

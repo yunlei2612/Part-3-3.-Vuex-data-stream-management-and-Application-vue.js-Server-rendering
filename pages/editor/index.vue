@@ -37,7 +37,7 @@
                   @keyup.enter="addTag"
                   placeholder="Enter tags"
                 />
-                <div class="tag-list" v-if="article.tagList.length > 0">
+                <div class="tag-list" v-if="article && article.tagList.length > 0">
                   <span
                     class="tag-default tag-pill"
                     v-for="(item, index) in article.tagList"
@@ -86,12 +86,16 @@ export default {
     console.log(context);
     if (!context.params.slug) {
       return {
-        article: {},
+        article: {
+          body: "",
+          description: "",
+          tagList: [],
+          title: "",
+        },
       };
     }
     const { data } = await getArticle(context.params.slug);
     const { article } = data;
-    debugger
     const tag = "";
     return {
       tag,

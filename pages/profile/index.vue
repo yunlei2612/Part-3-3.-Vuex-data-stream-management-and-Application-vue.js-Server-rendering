@@ -4,14 +4,14 @@
       <div class="container">
         <div class="row">
           <div class="col-xs-12 col-md-10 offset-md-1">
-            <img :src="profile.image" class="user-img" />
-            <h4>{{ profile.username }}</h4>
+            <img :src="userProfile.image" class="user-img" />
+            <h4>{{ userProfile.username }}</h4>
             <p>
               Cofounder @GoThinkster, lived in Aol's HQ for a few months, kinda
               looks like Peeta from the Hunger Games
             </p>
             <nuxt-link
-              v-if="profile.username === user.username"
+              v-if="userProfile.username === user.username"
               class="btn btn-sm btn-outline-secondary action-btn"
               to="/settings"
             >
@@ -19,13 +19,13 @@
               &nbsp; Edit Profile Settings
             </nuxt-link>
             <button
-              v-if="profile.username !== user.username"
+              v-if="userProfile.username !== user.username"
               class="btn btn-sm btn-outline-secondary action-btn"
-              @click="followingAuth(profile)"
+              @click="followingAuth(userProfile)"
             >
               <i class="ion-plus-round"></i>
-              &nbsp; {{ profile.following ? "Unfollow" : "Follow" }}
-              {{ profile.username }}
+              &nbsp; {{ userProfile.following ? "Unfollow" : "Follow" }}
+              {{ userProfile.username }}
             </button>
           </div>
         </div>
@@ -38,56 +38,101 @@
           <div class="articles-toggle">
             <ul class="nav nav-pills outline-active">
               <li class="nav-item">
-                <a class="nav-link active" href="">My Articles</a>
+                <nuxt-link
+                  class="nav-link"
+                  :class="{
+                    active: tab === 'my_article',
+                  }"
+                  exact
+                  :to="{
+                    name: 'profile',
+                    query: {
+                      tab: 'my_article',
+                    },
+                  }"
+                  >My Articles</nuxt-link
+                >
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="">Favorited Articles</a>
+                <nuxt-link
+                  class="nav-link"
+                  :class="{
+                    active: tab === 'favorit_article',
+                  }"
+                  exact
+                  :to="{
+                    name: 'profile',
+                    query: {
+                      tab: 'favorit_article',
+                    },
+                  }"
+                  >Favorited Articles</nuxt-link
+                >
               </li>
             </ul>
           </div>
 
-          <div class="article-preview">
+          <div
+            class="article-preview"
+            v-for="items in articles"
+            :key="items.slug"
+          >
             <div class="article-meta">
-              <a href=""><img src="http://i.imgur.com/Qr71crq.jpg" /></a>
+              <nuxt-link to="/">
+                <img :src="items.author.image" />
+              </nuxt-link>
               <div class="info">
-                <a href="" class="author">Eric Simons</a>
-                <span class="date">January 20th</span>
+                <nuxt-link to="/" class="author">{{
+                  items.author.username
+                }}</nuxt-link>
+                <span class="date">{{
+                  items.createdAt | date("MMM DD, YYYY")
+                }}</span>
               </div>
               <button class="btn btn-outline-primary btn-sm pull-xs-right">
-                <i class="ion-heart"></i> 29
+                <i class="ion-heart"></i> {{ items.favoritesCount }}
               </button>
             </div>
-            <a href="" class="preview-link">
-              <h1>How to build webapps that scale</h1>
-              <p>This is the description for the post.</p>
+            <nuxt-link
+              :to="{
+                name: 'article',
+                params: {
+                  slug: items.slug,
+                },
+              }"
+              class="preview-link"
+            >
+              <h1>{{ items.title }}</h1>
+              <p>{{ items.description }}</p>
               <span>Read more...</span>
-            </a>
+            </nuxt-link>
           </div>
 
-          <div class="article-preview">
-            <div class="article-meta">
-              <a href=""><img src="http://i.imgur.com/N4VcUeJ.jpg" /></a>
-              <div class="info">
-                <a href="" class="author">Albert Pai</a>
-                <span class="date">January 20th</span>
-              </div>
-              <button class="btn btn-outline-primary btn-sm pull-xs-right">
-                <i class="ion-heart"></i> 32
-              </button>
-            </div>
-            <a href="" class="preview-link">
-              <h1>
-                The song you won't ever stop singing. No matter how hard you
-                try.
-              </h1>
-              <p>This is the description for the post.</p>
-              <span>Read more...</span>
-              <ul class="tag-list">
-                <li class="tag-default tag-pill tag-outline">Music</li>
-                <li class="tag-default tag-pill tag-outline">Song</li>
-              </ul>
-            </a>
-          </div>
+          <!-- 分页列表 -->
+          <nav>
+            <ul class="pagination">
+              <li
+                class="page-item"
+                v-for="item in totalPage"
+                :class="{
+                  active: item === page,
+                }"
+                :key="item"
+              >
+                <nuxt-link
+                  class="page-link"
+                  :to="{
+                    name: 'profile',
+                    query: {
+                      page: item,
+                      tab: tab,
+                    },
+                  }"
+                  >{{ item }}</nuxt-link
+                >
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </div>
@@ -95,38 +140,70 @@
 </template>
 
 <script>
-import { getProfile, follow, unFollow } from "@/api/profile.js";
+import { getProfile, follow, unFollow } from "@/api/profile";
+import { getArticles } from "@/api/article";
 import { mapState } from "vuex";
 export default {
   middleware: "authenticated",
   name: "UserProfile",
-
-  async asyncData({ params }) {
-    const { username } = params;
-    const res = await getProfile(username);
-    const { profile } = res.data;
-    console.log(profile);
+  data() {
     return {
-      profile,
+      userProfile: "",
+    };
+  },
+  async asyncData({ params, query }) {
+    const limit = 5;
+    const page = Number.parseInt(query.page || 1);
+    const username = params.username;
+    const tab = query.tab || "my_article";
+    const loadArticles =
+      tab === "my_article"
+        ? {
+            author: username,
+            limit,
+            offset: (page - 1) * limit,
+          }
+        : {
+            favorited: username,
+            limit,
+            offset: (page - 1) * limit,
+          };
+    const [userInfo, article] = await Promise.all([
+      getProfile(username),
+      getArticles(loadArticles),
+    ]);
+    const userProfile = userInfo.data.profile;
+    const { articles, articlesCount } = article.data;
+    return {
+      userProfile,
+      limit, // 每页大小
+      tab,
+      page,
+      articlesCount,
+      articles,
     };
   },
   computed: {
     ...mapState(["user"]),
+    totalPage() {
+      return Math.ceil(this.articlesCount / this.limit);
+    },
   },
+  watchQuery: ["tab", "page"],
   methods: {
-    async followingAuth(profile) {
-      if (profile.following) {
-        await unFollow(profile.username);
-        profile.following = false;
+    async followingAuth(userProfile) {
+      if (userProfile.following) {
+        await unFollow(userProfile.username);
+        userProfile.following = false;
       } else {
-        await follow(profile.username);
-        profile.following = true;
+        await follow(userProfile.username);
+        userProfile.following = true;
       }
     },
   },
-  mounted(){
-    console.log(this.user.name===this.profile.username)
-  }
+  mounted() {
+    console.log(this.user.name === this.userProfile.username);
+  },
 };
 </script>
 
